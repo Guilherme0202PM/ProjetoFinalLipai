@@ -1,0 +1,17 @@
+# Projeto 3 - Segmentação Semântica em Imagens Histológicas
+#
+# Testado em ambiente Google Colab.
+# Para travar as versões exatas usadas em produção, rode `pip freeze > requirements.txt`
+# dentro do ambiente Colab utilizado nos treinamentos e substitua este arquivo.
+
+torch
+torchvision
+segmentation-models-pytorch
+albumentations
+thop
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+Pillow

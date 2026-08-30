@@ -10,6 +10,13 @@ O objetivo principal é realizar uma comparação experimental controlada entre 
 
 ---
 
+## Integrantes
+
+- **Gabriel Amorim** — [github.com/gabrielhca](https://github.com/gabrielhca)
+- **Guilherme Mundim** — [github.com/Guilherme0202PM](https://github.com/Guilherme0202PM)
+
+---
+
 ## 1. Objetivos
 
 Os principais objetivos do experimento são:
@@ -65,6 +72,40 @@ Classes utilizadas:
 | 1 | Tumor |
 
 Assim como no dataset de displasia, são utilizados conjuntos independentes de treino, validação e teste.
+
+### 2.3 Obtenção e Organização dos Dados
+
+Os dados brutos **não são versionados neste repositório** (imagens e máscaras são pesadas e pertencem a bases de terceiros). Apenas os arquivos de split (`splits_displasia.csv` e `splits_tumoral.csv`) ficam versionados aqui, garantindo que qualquer pessoa reproduza exatamente as mesmas divisões de treino, validação e teste.
+
+Para obter os dados:
+
+- **Oral Epithelium — Displasia**: [OralEpitheliumDB](https://github.com/LIPAI-Org/OralEpitheliumDB_Dataset)
+- **Tumor Tissue — Tecido Tumoral**: [Dataset de segmentação de tecido tumoral (Mendeley)](https://data.mendeley.com/datasets/9bsc36jyrt/1) — deste dataset, utilizamos somente as pastas `01-roi/01-original` (imagens) e `01-roi/02-mask` (máscaras); a pasta `02-non_roi` não é utilizada.
+
+Após o download, os dados devem ser organizados dentro de `datasets/` seguindo a estrutura abaixo:
+
+```text
+datasets/
+├── oral_epithelium/
+│   ├── splits_displasia.csv
+│   ├── images/
+│   │   └── Original ROI images/
+│   │       ├── healthy/
+│   │       └── severe/
+│   └── masks/
+│       └── Gold_Standard_Semantic_Segmentation/
+│           ├── healthy/
+│           └── severe/
+│
+└── tumor_tissue/
+    ├── splits_tumoral.csv
+    ├── train/
+    │   └── tumor/patch/640x640/<lâmina>/01-roi/{01-original,02-mask}/
+    └── test/
+        └── tumor/patch/640x640/<lâmina>/01-roi/{01-original,02-mask}/
+```
+
+Essa é a mesma estrutura de pastas esperada pelos notebooks `01_Displasia_Nucleos.ipynb` e `02_Tecido_Tumoral.ipynb`.
 
 ---
 
@@ -304,17 +345,20 @@ O melhor checkpoint de cada execução é armazenado para posterior avaliação 
 
 ### Hiperparâmetros
 
-Os valores abaixo devem refletir exatamente a configuração utilizada nos notebooks de treinamento.
+Os valores abaixo refletem exatamente a configuração utilizada nos notebooks de treinamento.
 
 | Parâmetro | Valor |
 |---|---|
-| Tamanho de entrada | **[preencher com o valor do notebook]** |
-| Batch size | **[preencher]** |
-| Número máximo de épocas | **[preencher]** |
-| Otimizador | **[preencher]** |
-| Learning rate | **[preencher]** |
+| Tamanho de entrada | **256 × 256** |
+| Batch size | **8** |
+| Número máximo de épocas | **50** |
+| Critério de parada | **Early stopping**, com paciência de **12 épocas** sem melhora no mDice de validação |
+| Otimizador | **AdamW** (weight decay = 1e-4) |
+| Learning rate | **1e-4** |
+| Estratégia de redução da taxa de aprendizado | **ReduceLROnPlateau** (monitorando o mDice de validação, `factor=0.5`, `patience=5`) |
 | Threshold da máscara | **0.5** |
-| Seeds | **[preencher as três seeds]** |
+| Seeds | **42, 123, 2025** |
+| Hardware utilizado | **Google Colab, GPU NVIDIA T4** |
 
 ---
 
@@ -643,6 +687,38 @@ Como extensões futuras, podem ser investigados:
 - patches com sobreposição;
 - avaliação do efeito do resize sobre estruturas pequenas;
 - técnicas específicas para desbalanceamento entre classes.
+
+---
+
+## 21. Dependências e Instalação
+
+O projeto foi desenvolvido e executado no **Google Colab**. Para reproduzir o ambiente localmente, as principais dependências estão listadas em [`requirements.txt`](requirements.txt) e podem ser instaladas com:
+
+```bash
+pip install -r requirements.txt
+```
+
+As bibliotecas utilizadas estão descritas na seção [Tecnologias Utilizadas](#tecnologias-utilizadas), a seguir.
+
+---
+
+## 22. Como Executar o Projeto
+
+O pipeline é dividido em três notebooks, que devem ser executados na seguinte ordem:
+
+1. **`01_Displasia_Nucleos.ipynb`** — treina as 36 execuções (3 combinações de arquitetura/modo × 2 losses × 2 augmentations × 3 seeds) referentes ao dataset de displasia, gerando checkpoints (`checkpoints/`), curvas de aprendizado (`results/curves_json/`) e o CSV consolidado (`results/resultados_displasia.csv`).
+2. **`02_Tecido_Tumoral.ipynb`** — realiza o mesmo procedimento para o dataset de tecido tumoral, gerando `results/resultados_tumoral.csv`.
+3. **`03_Analise_e_Graficos.ipynb`** — consolida os resultados dos dois datasets, calcula as métricas agregadas (média e desvio padrão), gera os gráficos comparativos (`results/plots_pdf/`), os mosaicos qualitativos e as matrizes de confusão (`results/qualitative/`).
+
+Passo a passo:
+
+1. Baixe os datasets conforme a seção [2.3](#23-obtenção-e-organização-dos-dados) e organize-os em `datasets/`.
+2. Faça upload da pasta `Repositorio/` para o Google Drive, mantendo a estrutura descrita na seção [17](#17-estrutura-dos-resultados).
+3. Abra `01_Displasia_Nucleos.ipynb` no Google Colab, monte o Google Drive e execute todas as células em ordem. Cada uma das 36 execuções é identificada por um `run_id` único; execuções já registradas no CSV consolidado são automaticamente puladas, permitindo interromper e retomar o treinamento sem duplicar trabalho.
+4. Repita o processo com `02_Tecido_Tumoral.ipynb`.
+5. Com as 72 execuções concluídas (36 por dataset), abra `03_Analise_e_Graficos.ipynb` e execute todas as células para gerar métricas, tabelas, gráficos, mosaicos e matrizes de confusão.
+
+Os hiperparâmetros de cada execução (arquitetura, loss, augmentation, seed, etc.) são definidos automaticamente pela grade experimental descrita na seção [6](#6-desenho-experimental), sem necessidade de configuração manual por execução.
 
 ---
 
